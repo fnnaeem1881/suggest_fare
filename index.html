@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Fare Suggestion</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Select2 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+
+    <style>
+        .suggest-box {
+            position: absolute;
+            background: #fff;
+            border: 1px solid #ced4da;
+            z-index: 1050;
+            width: 100%;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .suggest-item {
+            padding: 8px;
+            cursor: pointer;
+        }
+
+        .suggest-item:hover {
+            background-color: #f8f9fa;
+        }
+
+        .spinner-border-sm {
+            width: 1rem;
+            height: 1rem;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container mt-5">
+        <h3 class="mb-4">Fare Suggestion</h3>
+
+        <div id="alertBox"></div>
+
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <label for="car_type" class="form-label">Car Type</label>
+                <select id="car_type" class="form-select select2">
+                    <option value="">Select Car Type</option>
+                    <option value="Sedan">Sedan</option>
+                    <option value="Sedan Premium">Sedan Premium</option>
+                    <option value="Noah">Noah</option>
+                    <option value="HiAce">HiAce</option>
+                </select>
+            </div>
+            <div class="col-md-6">
+                <label for="trip_type" class="form-label">Trip Type</label>
+                <select id="trip_type" class="form-select select2">
+                    <option value="">Select Trip Type</option>
+                    <option value="one_way">One Way</option>
+                    <option value="round_way">Round Way</option>
+                    <option value="hourly">Hourly</option>
+                    <option value="airport_rental">Airport Rental</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="row position-relative mb-3">
+            <div class="col-md-6">
+                <label for="pickup" class="form-label">Pickup Location</label>
+                <input type="text" id="pickup" class="form-control" autocomplete="off">
+                <div id="pickup_suggestions" class="suggest-box d-none"></div>
+            </div>
+            <div class="col-md-6" id="dropoff_section">
+                <label for="dropoff" class="form-label">Dropoff Location</label>
+                <input type="text" id="dropoff" class="form-control" autocomplete="off">
+                <div id="dropoff_suggestions" class="suggest-box d-none"></div>
+            </div>
+        </div>
+
+        <!-- Hourly duration input (hidden by default) -->
+
+        <div class="row mb-3 d-none" id="hourly_section">
+            <div class="col-md-6">
+
+                <label for="hourly_duration" class="form-label">Hours</label>
+                <select id="hourly_duration" class="form-select">
+                    <option value="">Select Hours</option>
+                    <option value="1">1 Hour</option>
+                    <option value="2">2 Hours</option>
+                    <option value="3">3 Hours</option>
+                    <option value="4">4 Hours</option>
+                    <option value="5">5 Hours</option>
+                    <option value="6">6 Hours</option>
+                    <option value="7">7 Hours</option>
+                    <option value="8">8 Hours</option>
+                </select>
+            </div>
+        </div>
+
+
+        <button id="submitBtn" class="btn btn-success">
+            <span id="submitText">Get Fare</span>
+            <span id="submitLoader" class="spinner-border spinner-border-sm d-none"></span>
+        </button>
+
+        <div id="responseBox" class="mt-4 d-none"></div>
+    </div>
+
+    <!-- JS Libraries -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+    <script>
+        $(document).ready(function () {
+            $('.select2').select2();
+
+            let pickupLat = "", pickupLong = "", dropLat = "", dropLong = "";
+
+            function setupSuggestion(inputId, suggestBoxId, onSelect) {
+                let debounceTimer;
+
+                $(`#${inputId}`).on('input', function () {
+                    const query = $(this).val();
+                    clearTimeout(debounceTimer);
+
+                    debounceTimer = setTimeout(() => {
+                        if (query.length < 2) {
+                            $(`#${suggestBoxId}`).addClass('d-none');
+                            return;
+                        }
+
+                        $(`#${suggestBoxId}`).html(`<div class="p-2 text-muted">Loading...</div>`).removeClass('d-none');
+
+                        $.getJSON(`https://map.garibook.com/api/places/search?query=${query}`, function (data) {
+                            let html = '';
+                            if (data.results.length === 0) {
+                                html = `<div class="p-2 text-danger">No results found</div>`;
+                            } else {
+                                data.results.forEach(item => {
+                                    html += `<div class="suggest-item" data-lat="${item.lat}" data-long="${item.long}">${item.address}</div>`;
+                                });
+                            }
+
+                            $(`#${suggestBoxId}`).html(html).removeClass('d-none');
+
+                            $(`#${suggestBoxId} .suggest-item`).click(function () {
+                                const selectedText = $(this).text();
+                                const lat = $(this).data('lat');
+                                const long = $(this).data('long');
+                                $(`#${inputId}`).val(selectedText);
+                                $(`#${suggestBoxId}`).addClass('d-none');
+                                onSelect(lat, long);
+                            });
+                        });
+                    }, 500);
+                });
+
+                $(document).on('click', function (e) {
+                    if (!$(e.target).closest(`#${suggestBoxId}, #${inputId}`).length) {
+                        $(`#${suggestBoxId}`).addClass('d-none');
+                    }
+                });
+            }
+
+            setupSuggestion('pickup', 'pickup_suggestions', (lat, long) => {
+                pickupLat = lat;
+                pickupLong = long;
+            });
+
+            setupSuggestion('dropoff', 'dropoff_suggestions', (lat, long) => {
+                dropLat = lat;
+                dropLong = long;
+            });
+
+            function showAlert(message, type = 'danger') {
+                $('#alertBox').html(`<div class="alert alert-${type}">${message}</div>`);
+            }
+
+            // Toggle dropoff/hourly based on trip_type
+            $('#trip_type').on('change', function () {
+                const tripType = $(this).val();
+                if (tripType === 'hourly') {
+                    $('#dropoff_section').addClass('d-none');
+                    $('#hourly_section').removeClass('d-none');
+                } else {
+                    $('#dropoff_section').removeClass('d-none');
+                    $('#hourly_section').addClass('d-none');
+                }
+            });
+
+            $('#submitBtn').on('click', function () {
+                $('#alertBox').html('');
+                $('#responseBox').addClass('d-none');
+                $('#submitText').addClass('d-none');
+                $('#submitLoader').removeClass('d-none');
+
+                const carType = $('#car_type').val();
+                const tripType = $('#trip_type').val();
+                const hourlyDuration = $('#hourly_duration').val();
+
+                if (!carType || !tripType || !pickupLat || !pickupLong ||
+                    (tripType !== 'hourly' && (!dropLat || !dropLong)) ||
+                    (tripType === 'hourly' && !hourlyDuration)) {
+                    showAlert("All required fields must be filled correctly.");
+                    $('#submitText').removeClass('d-none');
+                    $('#submitLoader').addClass('d-none');
+                    return;
+                }
+
+                const form = new FormData();
+                form.append("car_type", carType);
+                form.append("pickup_lat", pickupLat);
+                form.append("pickup_lng", pickupLong);
+                form.append("trip_type", tripType);
+                form.append("hour", hourlyDuration);
+                form.append("dropoff_lat", dropLat);
+                form.append("dropoff_lng", dropLong);
+
+
+                $.ajax({
+                    url: "https://api.garibooladmin.com/api/v3/user/suggested-fare",
+                    method: "POST",
+                    headers: {
+                        "Authorization": "Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnYXJpYm9vay5jb20iLCJpYXQiOjE3NDgyNDQzODEsImV4cCI6MTc0ODk2NDM4MSwic3ViIjo2MTF9.iKEH15hHS7qgIsEwdln9s-OoesFEfhHMAPR5-N_OggJ5nwA2sBR7vwrMsXosy-VQQxkLFG2YEKmlGSGbp6jeq5FX7IA1XFsObKQ4xET6dUPq3Pe6oUc8AeSeT6HYWiRvgxNcrsdo3gjnWa8dJlCW-KNT6izmbo2iHZ2GhVpegnbwq2GIbykiAkPaqY4_fdLjYG7Ys9H5FoI7stBnNl-RxrLGk3GJIQCo7m_nGGmz3njvb9YOGeGunrUEWEvZMq0EbsqkPNMbsVUmG_C02GRGgslfVZIZMZ2tJUcUPmPqwBK3iYYXhC-Kt2-pY9bFd5oej9PX0zskdOkyf3xEvtgbLrEci3w7d1dt6JBg9Eng7BCcCO6KniHYVDDnnI2u9ZcB3CpRvVWib1hn5weFjwY2GS7S_GYz10hn8WuUtfWJaJy7D0NS5SmKPt7OflFMv0KUw57WdEn0un4r-7NnxQe8tA1mSm-W47JCvg4AU8El3bH2uZo6jnch9PmtSVXBWrw2viaPa92Nu-8e0kKevZKEPHK1ncasaF0xjM6xUbgf-7oUukhXflKJmQBfsnNpxQWEO_ixszSZbR15kTuDXU1JmlGOGzqZ93s4ChMxptUrwM2k1mFXBNlPUA6K9w68fgeY3kj6LWDylqjrWrKkg-vBdevaDEjOvP7qi9197lx_b7w"
+                    },
+                    processData: false,
+                    contentType: false,
+                    data: form,
+                    success: function (response) {
+                        $('#responseBox').html(`<pre class="bg-light p-3 border">${JSON.stringify(response, null, 2)}</pre>`).removeClass('d-none');
+                    },
+                    error: function (xhr) {
+                        const res = xhr.responseJSON;
+                        let msg = res && res.message ? res.message : "Something went wrong.";
+                        showAlert(msg);
+                    },
+                    complete: function () {
+                        $('#submitText').removeClass('d-none');
+                        $('#submitLoader').addClass('d-none');
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+
+</html>
