@@ -65,6 +65,17 @@
             </div>
         </div>
 
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <label for="pickup_date_time" class="form-label">Pickup Date & Time</label>
+                <input type="datetime-local" id="pickup_date_time" class="form-control">
+            </div>
+            <div class="col-md-6 d-none" id="return_date_time_section">
+                <label for="return_date_time" class="form-label">Return Date & Time</label>
+                <input type="datetime-local" id="return_date_time" class="form-control">
+            </div>
+        </div>
+
         <div class="row position-relative mb-3">
             <div class="col-md-6">
                 <label for="pickup" class="form-label">Pickup Location</label>
@@ -91,10 +102,8 @@
         </div>
 
         <!-- Hourly duration input (hidden by default) -->
-
         <div class="row mb-3 d-none" id="hourly_section">
             <div class="col-md-6">
-
                 <label for="hourly_duration" class="form-label">Hours</label>
                 <select id="hourly_duration" class="form-select">
                     <option value="">Select Hours</option>
@@ -109,7 +118,6 @@
                 </select>
             </div>
         </div>
-
 
         <button id="submitBtn" class="btn btn-success">
             <span id="submitText">Get Fare</span>
@@ -128,8 +136,17 @@
         $(document).ready(function () {
             $('.select2').select2();
 
-            let pickupLat = "", pickupLong = "", dropLat = "", dropLong = "", stop1Lat = "", stop1Long = "", stop2Lat = "", stop2Long = "";
+            // Set default pickup date/time to now
+            const now = new Date();
+            const formattedDateTime = now.toISOString().slice(0, 16);
+            $('#pickup_date_time').val(formattedDateTime);
 
+            // Location data variables
+            let pickupLat = "", pickupLong = "", pickupDistrict = "", pickupDivision = "";
+            let dropLat = "", dropLong = "", dropDistrict = "", dropDivision = "";
+            let stop1Lat = "", stop1Long = "", stop1District = "", stop1Division = "";
+            let stop2Lat = "", stop2Long = "", stop2District = "", stop2Division = "";
+            
             function setupSuggestion(inputId, suggestBoxId, onSelect) {
                 let debounceTimer;
 
@@ -151,7 +168,13 @@
                                 html = `<div class="p-2 text-danger">No results found</div>`;
                             } else {
                                 data.results.forEach(item => {
-                                    html += `<div class="suggest-item" data-lat="${item.lat}" data-long="${item.long}">${item.address}</div>`;
+                                    html += `<div class="suggest-item" 
+                                                data-lat="${item.lat}" 
+                                                data-long="${item.long}"
+                                                data-district="${item.district || ''}"
+                                                data-division="${item.division || ''}">
+                                                ${item.address}
+                                            </div>`;
                                 });
                             }
 
@@ -161,9 +184,12 @@
                                 const selectedText = $(this).text();
                                 const lat = $(this).data('lat');
                                 const long = $(this).data('long');
+                                const district = $(this).data('district') || '';
+                                const division = $(this).data('division') || '';
+                                
                                 $(`#${inputId}`).val(selectedText);
                                 $(`#${suggestBoxId}`).addClass('d-none');
-                                onSelect(lat, long);
+                                onSelect(lat, long, district, division);
                             });
                         });
                     }, 500);
@@ -176,37 +202,55 @@
                 });
             }
 
-            setupSuggestion('pickup', 'pickup_suggestions', (lat, long) => {
+            // Setup suggestions for all location fields
+            setupSuggestion('pickup', 'pickup_suggestions', (lat, long, district, division) => {
                 pickupLat = lat;
                 pickupLong = long;
+                pickupDistrict = district;
+                pickupDivision = division;
             });
 
-            setupSuggestion('dropoff', 'dropoff_suggestions', (lat, long) => {
+            setupSuggestion('dropoff', 'dropoff_suggestions', (lat, long, district, division) => {
                 dropLat = lat;
                 dropLong = long;
+                dropDistrict = district;
+                dropDivision = division;
             });
-            setupSuggestion('stop1', 'stop1_suggestions', (lat, long) => {
+
+            setupSuggestion('stop1', 'stop1_suggestions', (lat, long, district, division) => {
                 stop1Lat = lat;
                 stop1Long = long;
+                stop1District = district;
+                stop1Division = division;
             });
-            setupSuggestion('stop2', 'stop2_suggestions', (lat, long) => {
+
+            setupSuggestion('stop2', 'stop2_suggestions', (lat, long, district, division) => {
                 stop2Lat = lat;
                 stop2Long = long;
+                stop2District = district;
+                stop2Division = division;
             });
 
             function showAlert(message, type = 'danger') {
                 $('#alertBox').html(`<div class="alert alert-${type}">${message}</div>`);
             }
 
-            // Toggle dropoff/hourly based on trip_type
+            // Toggle fields based on trip_type
             $('#trip_type').on('change', function () {
                 const tripType = $(this).val();
+                
                 if (tripType === 'hourly') {
                     $('#dropoff_section').addClass('d-none');
                     $('#hourly_section').removeClass('d-none');
+                    $('#return_date_time_section').addClass('d-none');
+                } else if (tripType === 'round_way') {
+                    $('#dropoff_section').removeClass('d-none');
+                    $('#hourly_section').addClass('d-none');
+                    $('#return_date_time_section').removeClass('d-none');
                 } else {
                     $('#dropoff_section').removeClass('d-none');
                     $('#hourly_section').addClass('d-none');
+                    $('#return_date_time_section').addClass('d-none');
                 }
             });
 
@@ -219,11 +263,34 @@
                 const carType = $('#car_type').val();
                 const tripType = $('#trip_type').val();
                 const hourlyDuration = $('#hourly_duration').val();
+                const pickupDateTime = $('#pickup_date_time').val();
+                const returnDateTime = $('#return_date_time').val();
 
-                if (!carType || !tripType || !pickupLat || !pickupLong ||
-                    (tripType !== 'hourly' && (!dropLat || !dropLong)) ||
-                    (tripType === 'hourly' && !hourlyDuration)) {
+                // Basic validation
+                if (!carType || !tripType || !pickupLat || !pickupLong || !pickupDateTime) {
                     showAlert("All required fields must be filled correctly.");
+                    $('#submitText').removeClass('d-none');
+                    $('#submitLoader').addClass('d-none');
+                    return;
+                }
+
+                // Additional validation based on trip type
+                if (tripType !== 'hourly' && (!dropLat || !dropLong)) {
+                    showAlert("Dropoff location is required for this trip type.");
+                    $('#submitText').removeClass('d-none');
+                    $('#submitLoader').addClass('d-none');
+                    return;
+                }
+
+                if (tripType === 'hourly' && !hourlyDuration) {
+                    showAlert("Hourly duration is required for hourly trips.");
+                    $('#submitText').removeClass('d-none');
+                    $('#submitLoader').addClass('d-none');
+                    return;
+                }
+
+                if (tripType === 'round_way' && !returnDateTime) {
+                    showAlert("Return date/time is required for round trips.");
                     $('#submitText').removeClass('d-none');
                     $('#submitLoader').addClass('d-none');
                     return;
@@ -233,18 +300,30 @@
                 form.append("car_type", carType);
                 form.append("pickup_lat", pickupLat);
                 form.append("pickup_lng", pickupLong);
+                form.append("pickup_district", pickupDistrict);
+                form.append("pickup_division", pickupDivision);
                 form.append("trip_type", tripType);
                 form.append("hour", hourlyDuration);
                 form.append("dropoff_lat", dropLat);
                 form.append("dropoff_lng", dropLong);
+                form.append("dropoff_district", dropDistrict);
+                form.append("dropoff_division", dropDivision);
                 form.append("stoppage1_lat", stop1Lat);
                 form.append("stoppage1_lng", stop1Long);
+                form.append("stoppage1_district", stop1District);
+                form.append("stoppage1_division", stop1Division);
                 form.append("stoppage2_lat", stop2Lat);
                 form.append("stoppage2_lng", stop2Long);
-
+                form.append("stoppage2_district", stop2District);
+                form.append("stoppage2_division", stop2Division);
+                form.append("pickup_date_time", pickupDateTime);
+                if (returnDateTime) {
+                    form.append("return_date_time", returnDateTime);
+                }
 
                 $.ajax({
                     url: "https://api.garibookadmin.com/api/v3/user/suggested-fare",
+                    // url: "http://127.0.0.1:8000/api/v3/user/suggested-fare",
                     method: "POST",
                     headers: {
                         "Authorization": "Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnYXJpYm9vay5jb20iLCJpYXQiOjE3NDgyNDQzODEsImV4cCI6MTc0ODk2NDM4MSwic3ViIjo2MTF9.iKEH15hHS7qgIsEwdln9s-OoesFEfhHMAPR5-N_OggJ5nwA2sBR7vwrMsXosy-VQQxkLFG2YEKmlGSGbp6jeq5FX7IA1XFsObKQ4xET6dUPq3Pe6oUc8AeSeT6HYWiRvgxNcrsdo3gjnWa8dJlCW-KNT6izmbo2iHZ2GhVpegnbwq2GIbykiAkPaqY4_fdLjYG7Ys9H5FoI7stBnNl-RxrLGk3GJIQCo7m_nGGmz3njvb9YOGeGunrUEWEvZMq0EbsqkPNMbsVUmG_C02GRGgslfVZIZMZ2tJUcUPmPqwBK3iYYXhC-Kt2-pY9bFd5oej9PX0zskdOkyf3xEvtgbLrEci3w7d1dt6JBg9Eng7BCcCO6KniHYVDDnnI2u9ZcB3CpRvVWib1hn5weFjwY2GS7S_GYz10hn8WuUtfWJaJy7D0NS5SmKPt7OflFMv0KUw57WdEn0un4r-7NnxQe8tA1mSm-W47JCvg4AU8El3bH2uZo6jnch9PmtSVXBWrw2viaPa92Nu-8e0kKevZKEPHK1ncasaF0xjM6xUbgf-7oUukhXflKJmQBfsnNpxQWEO_ixszSZbR15kTuDXU1JmlGOGzqZ93s4ChMxptUrwM2k1mFXBNlPUA6K9w68fgeY3kj6LWDylqjrWrKkg-vBdevaDEjOvP7qi9197lx_b7w"
