@@ -48,7 +48,6 @@
                 <select id="car_type" class="form-select select2">
                     <option value="">Select Car Type</option>
                     <option value="Sedan">Sedan</option>
-                    <option value="Sedan Economy">Sedan Economy</option>    
                     <option value="Sedan Premium">Sedan Premium</option>
                     <option value="Noah">Noah</option>
                     <option value="HiAce">HiAce</option>
@@ -60,8 +59,8 @@
                     <option value="">Select Trip Type</option>
                     <option value="one_way">One Way</option>
                     <option value="round_way">Round Way</option>
-<!--                     <option value="hourly">Hourly</option> -->
-<!--                     <option value="airport_rental">Airport Rental</option> -->
+                    <!-- <option value="hourly">Hourly</option> -->
+                    <!-- <option value="airport_rental">Airport Rental</option> -->
                 </select>
             </div>
         </div>
@@ -76,6 +75,18 @@
                 <label for="dropoff" class="form-label">Dropoff Location</label>
                 <input type="text" id="dropoff" class="form-control" autocomplete="off">
                 <div id="dropoff_suggestions" class="suggest-box d-none"></div>
+            </div>
+        </div>
+        <div class="row position-relative mb-3">
+             <div class="col-md-6" id="stop1_section">
+                <label for="stop1" class="form-label">Stoppage 1 Location</label>
+                <input type="text" id="stop1" class="form-control" autocomplete="off">
+                <div id="stop1_suggestions" class="suggest-box d-none"></div>
+            </div>
+            <div class="col-md-6" id="stop2_section">
+                <label for="stop2" class="form-label">Stoppage 2 Location</label>
+                <input type="text" id="stop2" class="form-control" autocomplete="off">
+                <div id="stop2_suggestions" class="suggest-box d-none"></div>
             </div>
         </div>
 
@@ -117,7 +128,7 @@
         $(document).ready(function () {
             $('.select2').select2();
 
-            let pickupLat = "", pickupLong = "", dropLat = "", dropLong = "";
+            let pickupLat = "", pickupLong = "", dropLat = "", dropLong = "", stop1Lat = "", stop1Long = "", stop2Lat = "", stop2Long = "";
 
             function setupSuggestion(inputId, suggestBoxId, onSelect) {
                 let debounceTimer;
@@ -174,6 +185,14 @@
                 dropLat = lat;
                 dropLong = long;
             });
+            setupSuggestion('stop1', 'stop1_suggestions', (lat, long) => {
+                stop1Lat = lat;
+                stop1Long = long;
+            });
+            setupSuggestion('stop2', 'stop2_suggestions', (lat, long) => {
+                stop2Lat = lat;
+                stop2Long = long;
+            });
 
             function showAlert(message, type = 'danger') {
                 $('#alertBox').html(`<div class="alert alert-${type}">${message}</div>`);
@@ -218,6 +237,10 @@
                 form.append("hour", hourlyDuration);
                 form.append("dropoff_lat", dropLat);
                 form.append("dropoff_lng", dropLong);
+                form.append("stoppage1_lat", stop1Lat);
+                form.append("stoppage1_lng", stop1Long);
+                form.append("stoppage2_lat", stop2Lat);
+                form.append("stoppage2_lng", stop2Long);
 
 
                 $.ajax({
