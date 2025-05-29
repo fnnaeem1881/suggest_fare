@@ -43,7 +43,15 @@
         <div id="alertBox"></div>
 
         <div class="row mb-3">
-            <div class="col-md-6">
+            <div class="col-md-4">
+                <label for="api_endpoint" class="form-label">API Endpoint</label>
+                <select id="api_endpoint" class="form-select">
+                    <option value="main">Main</option>
+                    <option value="stage">Stage</option>
+                    <option value="local">Local</option>
+                </select>
+            </div>
+            <div class="col-md-4">
                 <label for="car_type" class="form-label">Car Type</label>
                 <select id="car_type" class="form-select select2">
                     <option value="">Select Car Type</option>
@@ -53,7 +61,7 @@
                     <option value="HiAce">HiAce</option>
                 </select>
             </div>
-            <div class="col-md-6">
+            <div class="col-md-4">
                 <label for="trip_type" class="form-label">Trip Type</label>
                 <select id="trip_type" class="form-select select2">
                     <option value="">Select Trip Type</option>
@@ -265,6 +273,23 @@
                 const hourlyDuration = $('#hourly_duration').val();
                 const pickupDateTime = $('#pickup_date_time').val();
                 const returnDateTime = $('#return_date_time').val();
+                const apiEndpoint = $('#api_endpoint').val();
+
+                // Determine the API URL based on selection
+                let apiUrl;
+                switch(apiEndpoint) {
+                    case 'main':
+                        apiUrl = "https://api.garibookadmin.com/api/v3/user/suggested-fare";
+                        break;
+                    case 'stage':
+                        apiUrl = "https://test.garibookadmin.com/api/v3/user/suggested-fare";
+                        break;
+                    case 'local':
+                        apiUrl = "http://127.0.0.1:8000/api/v3/user/suggested-fare";
+                        break;
+                    default:
+                        apiUrl = "https://api.garibookadmin.com/api/v3/user/suggested-fare";
+                }
 
                 // Basic validation
                 if (!carType || !tripType || !pickupLat || !pickupLong || !pickupDateTime) {
@@ -322,8 +347,7 @@
                 }
 
                 $.ajax({
-                    url: "https://api.garibookadmin.com/api/v3/user/suggested-fare",
-                    // url: "http://127.0.0.1:8000/api/v3/user/suggested-fare",
+                    url: apiUrl,
                     method: "POST",
                     headers: {
                         "Authorization": "Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnYXJpYm9vay5jb20iLCJpYXQiOjE3NDgyNDQzODEsImV4cCI6MTc0ODk2NDM4MSwic3ViIjo2MTF9.iKEH15hHS7qgIsEwdln9s-OoesFEfhHMAPR5-N_OggJ5nwA2sBR7vwrMsXosy-VQQxkLFG2YEKmlGSGbp6jeq5FX7IA1XFsObKQ4xET6dUPq3Pe6oUc8AeSeT6HYWiRvgxNcrsdo3gjnWa8dJlCW-KNT6izmbo2iHZ2GhVpegnbwq2GIbykiAkPaqY4_fdLjYG7Ys9H5FoI7stBnNl-RxrLGk3GJIQCo7m_nGGmz3njvb9YOGeGunrUEWEvZMq0EbsqkPNMbsVUmG_C02GRGgslfVZIZMZ2tJUcUPmPqwBK3iYYXhC-Kt2-pY9bFd5oej9PX0zskdOkyf3xEvtgbLrEci3w7d1dt6JBg9Eng7BCcCO6KniHYVDDnnI2u9ZcB3CpRvVWib1hn5weFjwY2GS7S_GYz10hn8WuUtfWJaJy7D0NS5SmKPt7OflFMv0KUw57WdEn0un4r-7NnxQe8tA1mSm-W47JCvg4AU8El3bH2uZo6jnch9PmtSVXBWrw2viaPa92Nu-8e0kKevZKEPHK1ncasaF0xjM6xUbgf-7oUukhXflKJmQBfsnNpxQWEO_ixszSZbR15kTuDXU1JmlGOGzqZ93s4ChMxptUrwM2k1mFXBNlPUA6K9w68fgeY3kj6LWDylqjrWrKkg-vBdevaDEjOvP7qi9197lx_b7w"
